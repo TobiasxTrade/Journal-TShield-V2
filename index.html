@@ -473,7 +473,7 @@ toast('Operación guardada');
 
     async function togglePF(id){
       try {
-        pfData[id].enabled = !(pfData[id].enabled !== false);
+        pfData[id].enabled = !pfData[id].enabled;
         await savePFAccount(id);
         renderAll();
         toast(pfData[id].enabled ? 'Cuenta activada' : 'Cuenta deshabilitada');
@@ -494,7 +494,9 @@ toast('Operación guardada');
         const date = document.getElementById(`pf-date-${id}`).value || todayStr();
         const desc = document.getElementById(`pf-desc-${id}`).value.trim();
         const amount = Number(document.getElementById(`pf-amt-${id}`).value);
-        if(Number.isNaN(amount)) return toast('Ingresa un monto válido', false);
+        if (!amount && amount !== 0) {
+  return toast('Ingresa un monto válido', false);
+}
         const entry = { id:uid(), accountId:id, date, desc, amount, updatedAt:new Date().toISOString() };
         await apiPost({ action:'savePropfirmEntry', entry });
         await refreshRemoteAndRender('Movimiento guardado');
@@ -540,11 +542,22 @@ toast('Operación guardada');
     }
 
     async function refreshRemoteAndRender(successMsg){
-      await loadRemoteData();
-      buildLotCards();
-      renderAll();
-      if (successMsg) toast(successMsg);
-    }
+  try {
+    await loadRemoteData();
+
+    renderJournal();
+    renderHeaderStats();
+    renderQuickPanels();
+    renderStatsView();
+    renderCalendar();
+    renderPF();
+
+    if (successMsg) toast(successMsg);
+
+  } catch (err) {
+    console.error(err);
+    toast('Error refrescando datos', false);
+  }
 
     document.addEventListener('change', async (e) => {
       if (e.target.matches('[id^="lot-title-"]')) {
