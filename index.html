@@ -392,8 +392,12 @@
         } else {
           payload = { ...base, pair:'', dir:'', result:'', r:0, pct:0, note:'', emotion:0, bias:0, discipline:0, execution:0, errors:'', notrReason:getSingle('sel-notr-reason') || '', notrNote:document.getElementById('f-notr-note').value.trim() };
         }
-        await apiPost({ action:'saveJournalEntry', entry: payload });
-        await refreshRemoteAndRender('Operación guardada');
+       await apiPost({ action:'saveJournalEntry', entry: payload });
+
+await loadRemoteData();
+renderAll();
+
+toast('Operación guardada');
         closeTradeModal();
       } catch (err) {
         console.error(err);
