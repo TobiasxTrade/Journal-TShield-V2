@@ -261,14 +261,21 @@
     }
 
     async function apiPost(payload){
-      const res = await fetch(API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ ...payload, sheetId: GOOGLE_SHEET_ID })
-      });
-      if (!res.ok) throw new Error('Error enviando datos remotos');
-      return res.json();
-    }
+  const res = await fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ ...payload, sheetId: GOOGLE_SHEET_ID })
+  });
+
+  const data = await res.json();
+
+  if (!data.ok) {
+    console.error('API ERROR:', data);
+    throw new Error(data.error || 'Error backend');
+  }
+
+  return data;
+}
 
     async function loadRemoteData(){
       const data = await apiGet('loadAll');
