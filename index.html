@@ -212,8 +212,28 @@
     function bootstrapDefaults(){ if (!entries) entries = []; if (!pfData || typeof pfData !== 'object' || !Object.keys(pfData).length) { pfData = {}; FIRMS.forEach(f => { pfData[f.id] = { id:f.id, balance:f.balance, target:10, consistency:45, enabled:true, entries:[] }; }); } LOT_FIRMS.forEach(f => { if (!lotState[f.id]) lotState[f.id] = { id:f.id, risk:0.5, balance:10000, title:f.name }; }); }
     function hydrateFromOfflineCache(){ const cache = getOfflineCache(); if (!cache || typeof cache !== 'object') return false; const hasSomething = (Array.isArray(cache.journal) && cache.journal.length) || (Array.isArray(cache.propfirmAccounts) && cache.propfirmAccounts.length) || (Array.isArray(cache.propfirmEntries) && cache.propfirmEntries.length) || (Array.isArray(cache.lotCalcSettings) && cache.lotCalcSettings.length); if (!hasSomething) return false; entries = (cache.journal || []).map(normalizeJournalEntry).filter(Boolean).sort((a,b) => (b.date || '').localeCompare(a.date || '')); hydratePropFirm(cache.propfirmAccounts || [], cache.propfirmEntries || []); hydrateLotSettings(cache.lotCalcSettings || []); return true; }
 
-    async function apiGet(action){ const url = `${API_URL}?action=${encodeURIComponent(action)}&sheetId=${encodeURIComponent(GOOGLE_SHEET_ID)}&t=${Date.now()}`; const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), 15000); try { const res = await fetch(url, { method:'GET', mode:'cors', cache:'no-store', credentials:'omit', redirect:'follow', signal:controller.signal }); const text = await res.text(); let data={}; try { data = JSON.parse(text); } catch { throw new Error(`Respuesta no JSON: ${text.slice(0,200)}`); } if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`); if (!data.ok) throw new Error(data.error || 'Error backend GET'); return data; } finally { clearTimeout(timeout); } }
-    async function apiPost(payload){ const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), 15000); try { const res = await fetch(`${API_URL}?t=${Date.now()}`, { method:'POST', mode:'cors', cache:'no-store', credentials:'omit', redirect:'follow', headers:{ 'Content-Type':'text/plain;charset=utf-8' }, body: JSON.stringify({ ...payload, sheetId: GOOGLE_SHEET_ID }), signal:controller.signal }); const text = await res.text(); let data={}; try { data = JSON.parse(text); } catch { throw new Error(`Respuesta no JSON: ${text.slice(0,200)}`); } if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`); if (!data.ok) throw new Error(data.error || 'Error backend POST'); return data; } finally { clearTimeout(timeout); } }
+    async function apiGet(action){
+      const res = await fetch(`${API_URL}?action=${encodeURIComponent(action)}&sheetId=${encodeURIComponent(GOOGLE_SHEET_ID)}&t=${Date.now()}`);
+      const text = await res.text();
+      let data = {};
+      try { data = JSON.parse(text); } catch { throw new Error(`Respuesta no JSON: ${text.slice(0,200)}`); }
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      if (!data.ok) throw new Error(data.error || 'Error backend GET');
+      return data;
+    }
+    async function apiPost(payload){
+      const res = await fetch(API_URL, {
+        method:'POST',
+        headers:{ 'Content-Type':'text/plain;charset=utf-8' },
+        body: JSON.stringify({ ...payload, sheetId: GOOGLE_SHEET_ID })
+      });
+      const text = await res.text();
+      let data = {};
+      try { data = JSON.parse(text); } catch { throw new Error(`Respuesta no JSON: ${text.slice(0,200)}`); }
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      if (!data.ok) throw new Error(data.error || 'Error backend POST');
+      return data;
+    }
     async function loadRemoteData(){ const data = await apiGet('loadAll'); entries = (data.journal || []).map(normalizeJournalEntry).filter(Boolean).sort((a,b) => (b.date || '').localeCompare(a.date || '')); hydratePropFirm(data.propfirmAccounts || [], data.propfirmEntries || []); hydrateLotSettings(data.lotCalcSettings || []); saveOfflineCache(); }
     function normalizeJournalEntry(row){ if (!row || !row.id) return null; return { id: row.id, date: row.date || todayStr(), daytype: row.daytype || 'trade', pair: row.pair || '', dir: row.dir || '', result: row.result || '', r: Number(row.r || 0), pct: Number(row.pct || 0), note: row.note || '', ['sel-emo']: Number(row.emotion || row['sel-emo'] || 0), ['q-sesgo']: Number(row.bias || row['q-sesgo'] || 0), ['q-disciplina']: Number(row.discipline || row['q-disciplina'] || 0), ['q-ejecucion']: Number(row.execution || row['q-ejecucion'] || 0), errors: String(row.errors || '').trim() ? String(row.errors).split('|') : [], notrReason: row.notrReason || '', notrNote: row.notrNote || '' }; }
     function hydratePropFirm(accountRows, entryRows){ pfData = {}; FIRMS.forEach(f => { const row = accountRows.find(x => x.id === f.id) || {}; pfData[f.id] = { id: f.id, balance: Number(row.balance || f.balance), target: Number(row.target || 10), consistency: Number(row.consistency || 45), enabled: String(row.enabled || 'true') !== 'false', entries: [] }; }); entryRows.forEach(row => { if (!row || !row.accountId || !pfData[row.accountId]) return; pfData[row.accountId].entries.push({ id: row.id, accountId: row.accountId, date: row.date || todayStr(), desc: row.desc || '', amount: Number(row.amount || 0) }); }); Object.values(pfData).forEach(acc => acc.entries.sort((a,b) => (b.date || '').localeCompare(a.date || ''))); }
